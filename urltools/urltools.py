@@ -6,17 +6,19 @@ from posixpath import normpath
 try:
     from urllib.request import urlopen
     from urllib.parse import quote
+    from urllib.parse import unquote
     unicode = str
 except:
     from urllib import urlopen
     from urllib import quote
+    from urllib import unquote
 
 
 __version__ = '0.3.2'
 
 __all__ = ['URL', 'SplitResult', 'parse', 'extract', 'construct', 'normalize',
            'compare', 'normalize_host', 'normalize_path', 'normalize_query',
-           'normalize_fragment', 'encode', 'unquote', 'split', 'split_netloc',
+           'normalize_fragment', 'encode', '_unquote', 'split', 'split_netloc',
            'split_host']
 
 
@@ -65,6 +67,27 @@ QUOTE_EXCEPTIONS = {
     'path': ' /?+#',
     'query': ' &=+#',
     'fragment': ' +#'
+}
+
+ESCAPE_SEQUENCES = {
+    'path': {
+		' ': '%20',
+		'#': '%23',
+		'+': '%2B',
+		'?': '%3F'
+	},
+	'query': {
+		' ': '%20',
+		'#': '%23',
+		'&': '%26',
+		'+': '%2B',
+		'=': '%3D',
+	},
+	'fragment': {
+		' ': '%20',
+		'#': '%23',
+		'+': '%2B',
+	}
 }
 
 
@@ -208,7 +231,8 @@ def normalize_path(path):
     """
     if path in ['//', '/', '']:
         return '/'
-    npath = normpath(unquote(path, exceptions=QUOTE_EXCEPTIONS['path']))
+    path = _unquote(path, preserve=ESCAPE_SEQUENCES['path'])
+    npath = normpath(path)
     if path[-1] == '/' and npath != '/':
         npath += '/'
     return npath
@@ -222,7 +246,7 @@ def normalize_query(query):
     """
     if query == '' or len(query) <= 2:
         return ''
-    nquery = unquote(query, exceptions=QUOTE_EXCEPTIONS['query'])
+    nquery = _unquote(query, preserve=ESCAPE_SEQUENCES['query'])
     params = nquery.split('&')
     nparams = []
     for param in params:
@@ -236,21 +260,18 @@ def normalize_query(query):
 
 def normalize_fragment(fragment):
     """Normalize fragment (unquote with exceptions only)."""
-    return unquote(fragment, QUOTE_EXCEPTIONS['fragment'])
+    return _unquote(fragment, preserve=ESCAPE_SEQUENCES['fragment'])
 
 
-_hextochr = dict(('%02x' % i, chr(i)) for i in range(256))
-_hextochr.update(dict(('%02X' % i, chr(i)) for i in range(256)))
+def _unquote(text, preserve={}):
+    """Unquote a text but save preserve characters.
 
-
-def unquote(text, exceptions=[]):
-    """Unquote a text but ignore the exceptions.
-
-    >>> unquote('foo%23bar')
+    >>> _unquote('foo%23bar')
     'foo#bar'
-    >>> unquote('foo%23bar', ['#'])
+    >>> _unquote('foo%23bar', {'#' : '%23'})
     'foo%23bar'
     """
+
     if not text:
         if text is None:
             raise TypeError('None object cannot be unquoted')
@@ -258,18 +279,10 @@ def unquote(text, exceptions=[]):
             return text
     if '%' not in text:
         return text
-    s = text.split('%')
-    res = [s[0]]
-    for h in s[1:]:
-        c = _hextochr.get(h[:2])
-        if c and c not in exceptions:
-            if len(h) > 2:
-                res.append(c + h[2:])
-            else:
-                res.append(c)
-        else:
-            res.append('%' + h)
-    return ''.join(res)
+    text = unquote(text)
+    for (char, escape) in preserve.items():
+        text = text.replace(char, escape)
+    return text
 
 
 def parse(url):

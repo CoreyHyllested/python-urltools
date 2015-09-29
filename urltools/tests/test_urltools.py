@@ -2,7 +2,7 @@
 import pytest
 
 from urltools import parse, extract, encode, split, split_netloc, split_host
-from urltools import normalize, normalize_path, normalize_query, unquote
+from urltools import normalize, normalize_path, normalize_query, _unquote
 from urltools import normalize_host, normalize_fragment, compare
 from urltools.urltools import _get_public_suffix_list, _clean_netloc
 from urltools.urltools import _normalize_port, _encode_query
@@ -178,15 +178,15 @@ def test_compare():
 
 
 def test_unquote():
-    pytest.raises(TypeError, unquote, None)
-    assert unquote('') == ''
-    assert unquote('%32%35') == '25'
-    assert unquote('%25%32%35') == '%25'
-    assert unquote('%25%32%35', ['%']) == '%2525'
-    assert unquote('foo%25%32%35bar') == 'foo%25bar'
-    assert unquote('foo%23bar') == 'foo#bar'
-    assert unquote('foo%23bar', ['#']) == 'foo%23bar'
-    assert unquote('%2e%2E') == '..'
+    pytest.raises(TypeError, _unquote, None)
+    assert _unquote('') == ''
+    assert _unquote('%32%35') == '25'
+    assert _unquote('%25%32%35') == '%25'
+    assert _unquote('%25%32%35', {'%': '%25'}) == '%2525'
+    assert _unquote('foo%25%32%35bar') == 'foo%25bar'
+    assert _unquote('foo%23bar') == 'foo#bar'
+    assert _unquote('foo%23bar', {'#': '%23'}) == 'foo%23bar'
+    assert _unquote('%2e%2E') == '..'
 
 
 def test_encode():
